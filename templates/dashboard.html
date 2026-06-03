@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>5G AQM Performance Dashboard</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #ffffff;
+        --bg2: #f5f5f3;
+        --bg3: #efefec;
+        --text: #1a1a18;
+        --text2: #6b6b67;
+        --border: rgba(0, 0, 0, 0.12);
+        --border2: rgba(0, 0, 0, 0.22);
+        --radius: 8px;
+        --radius-lg: 12px;
+        --font: system-ui, -apple-system, sans-serif;
+        --mono: ui-monospace, monospace;
+        --c-fifo: #e24b4a;
+        --c-red: #ba7517;
+        --c-codel: #1d9e75;
+        --c-ml: #7f77dd;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1c1c1a;
+          --bg2: #252523;
+          --bg3: #2e2e2b;
+          --text: #f0f0ec;
+          --text2: #9b9b96;
+          --border: rgba(255, 255, 255, 0.1);
+          --border2: rgba(255, 255, 255, 0.2);
+        }
+      }
+      body {
+        background: var(--bg3);
+        font-family: var(--font);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+      }
+
+      /* ── header ── */
+      .header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .header h1 {
+        font-size: 22px;
+        font-weight: 500;
+      }
+      .header .sub {
+        font-size: 13px;
+        color: var(--text2);
+        margin-top: 4px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        color: var(--text2);
+        background: var(--bg2);
+        border: 0.5px solid var(--border);
+        border-radius: 20px;
+        padding: 5px 12px;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--c-ml);
+        animation: pulse 2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.25;
+        }
+      }
+
+      /* ── controls ── */
+      .controls {
+        background: var(--bg2);
+        border: 0.5px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1.2rem 1.4rem;
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        margin-bottom: 1.5rem;
+      }
+      .ctrl {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .ctrl label {
+        font-size: 12px;
+        color: var(--text2);
+      }
+      .ctrl-val {
+        font-size: 13px;
+        font-weight: 500;
+      }
+      input[type='range'] {
+        width: 130px;
+        accent-color: var(--c-ml);
+        cursor: pointer;
+      }
+      .run-btn {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 20px;
+        background: var(--bg);
+        border: 0.5px solid var(--border2);
+        border-radius: var(--radius);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        color: var(--text);
+        transition: background 0.15s;
+      }
+      .run-btn:hover {
+        background: var(--bg3);
+      }
+      .run-btn:active {
+        transform: scale(0.98);
+      }
+      .run-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* ── metric cards ── */
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+        margin-bottom: 1.5rem;
+      }
+      .mcard {
+        background: var(--bg2);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+      }
+      .mcard .mlabel {
+        font-size: 12px;
+        color: var(--text2);
+        margin-bottom: 4px;
+      }
+      .mcard .mval {
+        font-size: 24px;
+        font-weight: 500;
+      }
+      .mcard .msub {
+        font-size: 11px;
+        color: var(--text2);
+        margin-top: 3px;
+      }
+      .mcard.fifo .mval {
+        color: var(--c-fifo);
+      }
+      .mcard.red .mval {
+        color: var(--c-red);
+      }
+      .mcard.codel .mval {
+        color: var(--c-codel);
+      }
+      .mcard.ml .mval {
+        color: var(--c-ml);
+      }
+
+      /* ── chart grid ── */
+      .charts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-bottom: 1.5rem;
+      }
+      @media (max-width: 640px) {
+        .charts {
+          grid-template-columns: 1fr;
+        }
+      }
+      .ccard {
+        background: var(--bg);
+        border: 0.5px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1rem 1.2rem;
+      }
+      .ctitle {
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 3px;
+      }
+      .csub {
+        font-size: 11px;
+        color: var(--text2);
+        margin-bottom: 10px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .li {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        color: var(--text2);
+      }
+      .lsq {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+
+      /* ── bottom row ── */
+      .bottom {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 640px) {
+        .bottom {
+          grid-template-columns: 1fr;
+        }
+      }
+      .bcard {
+        background: var(--bg);
+        border: 0.5px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1rem 1.2rem;
+      }
+      .btitle {
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 12px;
+      }
+
+      /* ── table ── */
+      .atbl {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      .atbl th {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text2);
+        text-align: left;
+        padding: 5px 8px;
+        border-bottom: 0.5px solid var(--border);
+        white-space: nowrap;
+      }
+      .atbl td {
+        padding: 7px 8px;
+        border-bottom: 0.5px solid var(--border);
+      }
+      .atbl tr:last-child td {
+        border-bottom: none;
+      }
+      .adot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 5px;
+      }
+      .pill {
+        font-size: 10px;
+        padding: 2px 7px;
+        border-radius: 10px;
+        font-weight: 500;
+      }
+      .pill-green {
+        background: #eaf3de;
+        color: #3b6d11;
+      }
+      .pill-red {
+        background: #fcebeb;
+        color: #a32d2d;
+      }
+      .pill-amber {
+        background: #faeeda;
+        color: #854f0b;
+      }
+      .pill-purple {
+        background: #eeedfe;
+        color: #3c3489;
+      }
+
+      /* ── log ── */
+      .log-list {
+        max-height: 250px;
+        overflow-y: auto;
+      }
+      .lentry {
+        display: flex;
+        gap: 8px;
+        font-size: 11px;
+        font-family: var(--mono);
+        padding: 4px 0;
+        border-bottom: 0.5px solid var(--border);
+      }
+      .lentry:last-child {
+        border-bottom: none;
+      }
+      .lts {
+        color: var(--text2);
+        min-width: 48px;
+      }
+      .lmsg {
+        color: var(--text);
+      }
+      .lg-fifo {
+        color: var(--c-fifo);
+      }
+      .lg-red {
+        color: var(--c-red);
+      }
+      .lg-codel {
+        color: var(--c-codel);
+      }
+      .lg-ml {
+        color: var(--c-ml);
+      }
+      .lg-ok {
+        color: #1d9e75;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <!-- header -->
+      <div class="header">
+        <div>
+          <h1>5G AQM performance dashboard</h1>
+          <div class="sub">
+            Active Queue Management — FIFO · RED · CoDel · ML-AQM algorithm
+            comparison
+          </div>
+        </div>
+        <div class="badge"><span class="dot"></span>Live simulation</div>
+      </div>
+
+      <!-- controls -->
+      <div class="controls">
+        <div class="ctrl">
+          <label>Total packets</label>
+          <input
+            type="range"
+            id="numPkts"
+            min="100"
+            max="600"
+            step="50"
+            value="300"
+            oninput="updateLabels()"
+          />
+          <span class="ctrl-val" id="numPktsVal">300</span>
+        </div>
+        <div class="ctrl">
+          <label>Arrival rate (pkts/step)</label>
+          <input
+            type="range"
+            id="arrRate"
+            min="5"
+            max="25"
+            step="1"
+            value="15"
+            oninput="updateLabels()"
+          />
+          <span class="ctrl-val" id="arrRateVal">15</span>
+        </div>
+        <div class="ctrl">
+          <label>Service rate (pkts/step)</label>
+          <input
+            type="range"
+            id="svcRate"
+            min="5"
+            max="20"
+            step="1"
+            value="10"
+            oninput="updateLabels()"
+          />
+          <span class="ctrl-val" id="svcRateVal">10</span>
+        </div>
+        <div class="ctrl">
+          <label>Queue capacity (FIFO/RED)</label>
+          <input
+            type="range"
+            id="qSize"
+            min="20"
+            max="120"
+            step="10"
+            value="50"
+            oninput="updateLabels()"
+          />
+          <span class="ctrl-val" id="qSizeVal">50</span>
+        </div>
+        <button class="run-btn" id="runBtn" onclick="runSim()">
+          <i class="ti ti-player-play"></i> Run simulation
+        </button>
+      </div>
+
+      <!-- metric cards -->
+      <div class="metrics">
+        <div class="mcard fifo">
+          <div class="mlabel">FIFO — packet loss</div>
+          <div class="mval" id="m-fifo">—</div>
+          <div class="msub">Tail-drop baseline</div>
+        </div>
+        <div class="mcard red">
+          <div class="mlabel">RED — packet loss</div>
+          <div class="mval" id="m-red">—</div>
+          <div class="msub">Early random drop</div>
+        </div>
+        <div class="mcard codel">
+          <div class="mlabel">CoDel — packet loss</div>
+          <div class="mval" id="m-codel">—</div>
+          <div class="msub">Delay-controlled</div>
+        </div>
+        <div class="mcard ml">
+          <div class="mlabel">ML-AQM — packet loss</div>
+          <div class="mval" id="m-ml">—</div>
+          <div class="msub">Predictive control</div>
+        </div>
+      </div>
+
+      <!-- charts -->
+      <div class="charts">
+        <div class="ccard">
+          <div class="ctitle">Queue length over time</div>
+          <div class="csub">Packets buffered per simulation step</div>
+          <div class="legend">
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-fifo)"></span
+              >FIFO</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-red)"></span
+              >RED</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-codel)"></span
+              >CoDel</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-ml)"></span
+              >ML-AQM</span
+            >
+          </div>
+          <div style="position: relative; width: 100%; height: 210px">
+            <canvas id="qChart"></canvas>
+          </div>
+        </div>
+
+        <div class="ccard">
+          <div class="ctitle">Packet loss rate (%)</div>
+          <div class="csub">Percentage of total packets dropped</div>
+          <div class="legend">
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-fifo)"></span
+              >FIFO</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-red)"></span
+              >RED</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-codel)"></span
+              >CoDel</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-ml)"></span
+              >ML-AQM</span
+            >
+          </div>
+          <div style="position: relative; width: 100%; height: 210px">
+            <canvas id="lossChart"></canvas>
+          </div>
+        </div>
+
+        <div class="ccard">
+          <div class="ctitle">Average delay (steps)</div>
+          <div class="csub">Mean packet sojourn time per algorithm</div>
+          <div class="legend">
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-fifo)"></span
+              >FIFO</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-red)"></span
+              >RED</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-codel)"></span
+              >CoDel</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-ml)"></span
+              >ML-AQM</span
+            >
+          </div>
+          <div style="position: relative; width: 100%; height: 210px">
+            <canvas id="delayChart"></canvas>
+          </div>
+        </div>
+
+        <div class="ccard">
+          <div class="ctitle">Throughput over time</div>
+          <div class="csub">Packets successfully delivered per step</div>
+          <div class="legend">
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-fifo)"></span
+              >FIFO</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-codel)"></span
+              >CoDel</span
+            >
+            <span class="li"
+              ><span class="lsq" style="background: var(--c-ml)"></span
+              >ML-AQM</span
+            >
+          </div>
+          <div style="position: relative; width: 100%; height: 210px">
+            <canvas id="tpChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- bottom -->
+      <div class="bottom">
+        <div class="bcard">
+          <div class="btitle">Algorithm comparison table</div>
+          <table class="atbl">
+            <thead>
+              <tr>
+                <th>Algorithm</th>
+                <th>Total</th>
+                <th>Delivered</th>
+                <th>Dropped</th>
+                <th>Loss %</th>
+                <th>Avg delay</th>
+                <th>Avg queue</th>
+                <th>Rating</th>
+              </tr>
+            </thead>
+            <tbody id="algoTbody">
+              <tr>
+                <td
+                  colspan="8"
+                  style="
+                    text-align: center;
+                    color: var(--text2);
+                    padding: 18px;
+                    font-size: 12px;
+                  "
+                >
+                  Press "Run simulation" to see results
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="bcard">
+          <div class="btitle">Simulation log</div>
+          <div class="log-list" id="simLog">
+            <div class="lentry">
+              <span class="lts">—</span>
+              <span class="lmsg" style="color: var(--text2)"
+                >Waiting for simulation…</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /page -->
+
+    <script>
+      /* ─── helpers ──────────────────────────────────────────────── */
+      const $ = id => document.getElementById(id)
+
+      function rng(seed) {
+        let s = seed >>> 0
+        return () => {
+          s = (Math.imul(s, 1664525) + 1013904223) >>> 0
+          return s / 0xffffffff
+        }
+      }
+
+      function updateLabels() {
+        $('numPktsVal').textContent = $('numPkts').value
+        $('arrRateVal').textContent = $('arrRate').value
+        $('svcRateVal').textContent = $('svcRate').value
+        $('qSizeVal').textContent = $('qSize').value
+      }
+
+      /* ─── simulators ────────────────────────────────────────────── */
+      function simFIFO(numPkts, arr, svc, maxQ, seed) {
+        const r = rng(seed)
+        const qLens = [],
+          tp = []
+        let q = [],
+          dropped = 0,
+          delivered = 0,
+          totalDelay = 0,
+          pktId = 0
+        const steps = Math.ceil(numPkts / arr) + 15
+        for (let t = 0; t < steps && pktId < numPkts; t++) {
+          const incoming = Math.max(1, Math.round(arr - 4 + r() * 9))
+          for (let i = 0; i < incoming && pktId < numPkts; i++, pktId++) {
+            if (q.length < maxQ) q.push(t)
+            else dropped++
+          }
+          const served = Math.min(svc, q.length)
+          for (let i = 0; i < served; i++) {
+            totalDelay += t - q.shift()
+            delivered++
+          }
+          tp.push(served)
+          qLens.push(q.length)
+        }
+        while (q.length) {
+          delivered++
+          q.shift()
+        }
+        const avgQ =
+          qLens.reduce((a, b) => a + b, 0) / Math.max(1, qLens.length)
+        return {
+          qLens,
+          tp,
+          dropped,
+          delivered,
+          total: numPkts,
+          avgDelay: delivered ? +(totalDelay / delivered).toFixed(3) : 0,
+          lossRate: +((dropped / numPkts) * 100).toFixed(2),
+          avgQ: +avgQ.toFixed(2)
+        }
+      }
+
+      function simRED(numPkts, arr, svc, maxQ, seed) {
+        const r = rng(seed + 7)
+        const minTh = maxQ * 0.2,
+          maxTh = maxQ * 0.6,
+          maxP = 0.5,
+          w = 0.002
+        const qLens = [],
+          tp = []
+        let q = [],
+          dropped = 0,
+          delivered = 0,
+          totalDelay = 0,
+          avgQ = 0,
+          pktId = 0
+        const steps = Math.ceil(numPkts / arr) + 15
+        for (let t = 0; t < steps && pktId < numPkts; t++) {
+          const incoming = Math.max(1, Math.round(arr - 4 + r() * 9))
+          for (let i = 0; i < incoming && pktId < numPkts; i++, pktId++) {
+            avgQ = (1 - w) * avgQ + w * q.length
+            let p = 0
+            if (avgQ >= minTh && avgQ <= maxTh)
+              p = (maxP * (avgQ - minTh)) / (maxTh - minTh)
+            else if (avgQ > maxTh) p = 1
+            if (q.length >= maxQ || r() < p) dropped++
+            else q.push(t)
+          }
+          const served = Math.min(svc, q.length)
+          for (let i = 0; i < served; i++) {
+            totalDelay += t - q.shift()
+            delivered++
+          }
+          tp.push(served)
+          qLens.push(q.length)
+        }
+        const avgQv =
+          qLens.reduce((a, b) => a + b, 0) / Math.max(1, qLens.length)
+        return {
+          qLens,
+          tp,
+          dropped,
+          delivered,
+          total: numPkts,
+          avgDelay: delivered ? +(totalDelay / delivered).toFixed(3) : 0,
+          lossRate: +((dropped / numPkts) * 100).toFixed(2),
+          avgQ: +avgQv.toFixed(2)
+        }
+      }
+
+      function simCoDel(numPkts, arr, svc, seed) {
+        const r = rng(seed + 13)
+        const TARGET = 5,
+          INTERVAL = 10
+        const qLens = [],
+          tp = []
+        let q = [],
+          dropped = 0,
+          delivered = 0,
+          totalDelay = 0,
+          pktId = 0
+        let firstAbove = null,
+          dropState = false,
+          dropCount = 0,
+          dropNext = 0
+        const steps = Math.ceil(numPkts / arr) + 15
+        for (let t = 0; t < steps && pktId < numPkts; t++) {
+          const incoming = Math.max(1, Math.round(arr - 4 + r() * 9))
+          for (let i = 0; i < incoming && pktId < numPkts; i++, pktId++)
+            q.push(t)
+          const served = Math.min(svc, q.length)
+          for (let i = 0; i < served && q.length; i++) {
+            const arrT = q[0],
+              sojourn = t - arrT
+            if (sojourn < TARGET) firstAbove = null
+            else if (!firstAbove) firstAbove = t + INTERVAL
+            const okDrop = firstAbove !== null && t >= firstAbove
+            if (dropState && t >= dropNext) {
+              q.shift()
+              dropped++
+              dropCount++
+              dropNext = t + INTERVAL / Math.sqrt(dropCount)
+              if (!okDrop) dropState = false
+            } else if (okDrop && !dropState) {
+              q.shift()
+              dropped++
+              dropState = true
+              dropCount = Math.max(
+                1,
+                dropCount - Math.floor(Math.sqrt(dropCount))
+              )
+              dropNext = t + INTERVAL / Math.sqrt(dropCount)
+            } else {
+              q.shift()
+              delivered++
+              totalDelay += sojourn
+            }
+          }
+          tp.push(Math.min(served, svc))
+          qLens.push(q.length)
+        }
+        const avgQ =
+          qLens.reduce((a, b) => a + b, 0) / Math.max(1, qLens.length)
+        return {
+          qLens,
+          tp,
+          dropped,
+          delivered,
+          total: numPkts,
+          avgDelay: delivered ? +(totalDelay / delivered).toFixed(3) : 0,
+          lossRate: +((dropped / numPkts) * 100).toFixed(2),
+          avgQ: +avgQ.toFixed(2)
+        }
+      }
+
+      function simML(numPkts, arr, svc, maxQ, seed) {
+        const r = rng(seed + 31)
+        const qLens = [],
+          tp = []
+        let q = [],
+          dropped = 0,
+          delivered = 0,
+          totalDelay = 0,
+          pktId = 0
+        let recentDrop = 0,
+          recentArr = 1
+        const steps = Math.ceil(numPkts / arr) + 15
+        for (let t = 0; t < steps && pktId < numPkts; t++) {
+          const incoming = Math.max(1, Math.round(arr - 4 + r() * 9))
+          const dropRate = recentDrop / Math.max(1, recentArr)
+          const load = q.length / maxQ
+          const congProb = Math.min(
+            1,
+            load * 0.55 + dropRate * 0.35 + (incoming > svc * 1.3 ? 0.15 : 0)
+          )
+          recentArr = incoming
+          recentDrop = 0
+          for (let i = 0; i < incoming && pktId < numPkts; i++, pktId++) {
+            if (q.length >= maxQ) {
+              dropped++
+              recentDrop++
+            } else if (r() < congProb * 0.45) {
+              dropped++
+              recentDrop++
+            } else q.push(t)
+          }
+          const served = Math.min(svc, q.length)
+          for (let i = 0; i < served; i++) {
+            totalDelay += t - q.shift()
+            delivered++
+          }
+          tp.push(served)
+          qLens.push(q.length)
+        }
+        const avgQ =
+          qLens.reduce((a, b) => a + b, 0) / Math.max(1, qLens.length)
+        return {
+          qLens,
+          tp,
+          dropped,
+          delivered,
+          total: numPkts,
+          avgDelay: delivered ? +(totalDelay / delivered).toFixed(3) : 0,
+          lossRate: +((dropped / numPkts) * 100).toFixed(2),
+          avgQ: +avgQ.toFixed(2)
+        }
+      }
+
+      /* ─── charts ────────────────────────────────────────────────── */
+      let charts = {}
+      function destroyAll() {
+        Object.values(charts).forEach(c => c && c.destroy())
+        charts = {}
+      }
+
+      function downsample(arr, maxPts = 50) {
+        if (arr.length <= maxPts) return arr
+        const step = arr.length / maxPts
+        return Array.from(
+          { length: maxPts },
+          (_, i) => arr[Math.floor(i * step)]
+        )
+      }
+
+      const COLORS = {
+        FIFO: '#E24B4A',
+        RED: '#BA7517',
+        CoDel: '#1D9E75',
+        'ML-AQM': '#7F77DD'
+      }
+
+      function mkLine(canvasId, datasets) {
+        const labels = Array.from(
+          { length: datasets[0].data.length },
+          (_, i) => i + 1
+        )
+        charts[canvasId] = new Chart($(canvasId), {
+          type: 'line',
+          data: {
+            labels,
+            datasets: datasets.map(d => ({
+              label: d.label,
+              data: d.data,
+              borderColor: COLORS[d.label],
+              backgroundColor: 'transparent',
+              borderWidth: d.label === 'ML-AQM' ? 2 : 1.5,
+              pointRadius: 0,
+              tension: 0.3
+            }))
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { font: { size: 10 }, maxTicksLimit: 8 } },
+              y: { ticks: { font: { size: 10 } }, beginAtZero: true }
+            }
+          }
+        })
+      }
+
+      function mkBar(canvasId, labels, data, colors) {
+        charts[canvasId] = new Chart($(canvasId), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              { data, backgroundColor: colors, borderWidth: 0, borderRadius: 4 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { font: { size: 10 } } },
+              y: { ticks: { font: { size: 10 } }, beginAtZero: true }
+            }
+          }
+        })
+      }
+
+      /* ─── logging ───────────────────────────────────────────────── */
+      const t0 = performance.now()
+      function addLog(msg, cls = '') {
+        const log = $('simLog')
+        const el = document.createElement('div')
+        el.className = 'lentry'
+        el.innerHTML = `<span class="lts">${(
+          (performance.now() - t0) /
+          1000
+        ).toFixed(1)}s</span>
+                  <span class="lmsg ${cls}">${msg}</span>`
+        log.prepend(el)
+        while (log.children.length > 25) log.removeChild(log.lastChild)
+      }
+
+      /* ─── table ─────────────────────────────────────────────────── */
+      function ratingPill(name, loss) {
+        if (name === 'ML-AQM')
+          return '<span class="pill pill-purple">Best</span>'
+        if (name === 'CoDel') return '<span class="pill pill-green">Good</span>'
+        if (loss > 20) return '<span class="pill pill-red">High loss</span>'
+        return '<span class="pill pill-amber">Moderate</span>'
+      }
+
+      function updateTable(results) {
+        $('algoTbody').innerHTML = results
+          .map(
+            ({ name, d }) => `
+    <tr>
+      <td><span class="adot" style="background:${
+        COLORS[name]
+      }"></span>${name}</td>
+      <td>${d.total}</td>
+      <td>${d.delivered}</td>
+      <td>${d.dropped}</td>
+      <td>${d.lossRate}%</td>
+      <td>${d.avgDelay}</td>
+      <td>${d.avgQ}</td>
+      <td>${ratingPill(name, d.lossRate)}</td>
+    </tr>`
+          )
+          .join('')
+      }
+
+      /* ─── main runner ───────────────────────────────────────────── */
+      function runSim() {
+        const numPkts = +$('numPkts').value
+        const arrRate = +$('arrRate').value
+        const svcRate = +$('svcRate').value
+        const maxQ = +$('qSize').value
+        const seed = Date.now() & 0xffffff
+
+        const btn = $('runBtn')
+        btn.disabled = true
+        btn.innerHTML = '<i class="ti ti-loader"></i> Running…'
+
+        setTimeout(() => {
+          addLog(
+            `Simulation started — ${numPkts} pkts, arr=${arrRate}, svc=${svcRate}, q=${maxQ}`
+          )
+
+          const fifo = simFIFO(numPkts, arrRate, svcRate, maxQ, seed)
+          addLog(
+            `FIFO complete  — loss ${fifo.lossRate}%  | delay ${fifo.avgDelay}`,
+            'lg-fifo'
+          )
+
+          const red = simRED(numPkts, arrRate, svcRate, maxQ, seed)
+          addLog(
+            `RED complete   — loss ${red.lossRate}%  | delay ${red.avgDelay}`,
+            'lg-red'
+          )
+
+          const codel = simCoDel(numPkts, arrRate, svcRate, seed)
+          addLog(
+            `CoDel complete — loss ${codel.lossRate}%  | delay ${codel.avgDelay}`,
+            'lg-codel'
+          )
+
+          const ml = simML(numPkts, arrRate, svcRate, maxQ * 2, seed)
+          addLog(
+            `ML-AQM complete— loss ${ml.lossRate}%  | delay ${ml.avgDelay}`,
+            'lg-ml'
+          )
+
+          /* metric cards */
+          $('m-fifo').textContent = fifo.lossRate + '%'
+          $('m-red').textContent = red.lossRate + '%'
+          $('m-codel').textContent = codel.lossRate + '%'
+          $('m-ml').textContent = ml.lossRate + '%'
+
+          /* rebuild charts */
+          destroyAll()
+          const ds50 = d => downsample(d, 50)
+
+          mkLine('qChart', [
+            { label: 'FIFO', data: ds50(fifo.qLens) },
+            { label: 'RED', data: ds50(red.qLens) },
+            { label: 'CoDel', data: ds50(codel.qLens) },
+            { label: 'ML-AQM', data: ds50(ml.qLens) }
+          ])
+
+          mkBar(
+            'lossChart',
+            ['FIFO', 'RED', 'CoDel', 'ML-AQM'],
+            [fifo.lossRate, red.lossRate, codel.lossRate, ml.lossRate],
+            ['#E24B4A', '#BA7517', '#1D9E75', '#7F77DD']
+          )
+
+          mkBar(
+            'delayChart',
+            ['FIFO', 'RED', 'CoDel', 'ML-AQM'],
+            [fifo.avgDelay, red.avgDelay, codel.avgDelay, ml.avgDelay],
+            ['#E24B4A', '#BA7517', '#1D9E75', '#7F77DD']
+          )
+
+          mkLine('tpChart', [
+            { label: 'FIFO', data: ds50(fifo.tp) },
+            { label: 'CoDel', data: ds50(codel.tp) },
+            { label: 'ML-AQM', data: ds50(ml.tp) }
+          ])
+
+          /* table */
+          updateTable([
+            { name: 'FIFO', d: fifo },
+            { name: 'RED', d: red },
+            { name: 'CoDel', d: codel },
+            { name: 'ML-AQM', d: ml }
+          ])
+
+          addLog('All charts updated ✓', 'lg-ok')
+          btn.disabled = false
+          btn.innerHTML = '<i class="ti ti-refresh"></i> Re-run simulation'
+        }, 40)
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        updateLabels()
+        runSim()
+      })
+    </script>
+  </body>
+</html>
