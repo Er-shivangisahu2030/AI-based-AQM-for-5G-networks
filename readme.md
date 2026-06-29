@@ -131,6 +131,8 @@ AQM_Project/
 ├── train_model.py
 ├── predictor.py
 ├── main.py
+|__app.py
+|__streamlit_app.py
 │
 ├── data/
 │   ├── traffic_data.csv
