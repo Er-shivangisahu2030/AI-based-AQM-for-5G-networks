@@ -20,8 +20,8 @@ import numpy as np
 # Paths
 # ─────────────────────────────────────────────
 
-MODEL_PATH  = "C:\\Users\\shiva\\AI-based-AQM-for-5G-networks\\models\\congestion_model.pkl"
-SCALER_PATH = "C:\\Users\\shiva\\AI-based-AQM-for-5G-networks\\models\\scaler.pkl"
+MODEL_PATH  = r"E:\\PROJECT FILE\\AI-based-AQM-for-5G-networks\\models\\congestion_model.pkl"
+SCALER_PATH = r"E:\\PROJECT FILE\\AI-based-AQM-for-5G-networks\\models\\scaler.pkl"
 
 FEATURES = [
     "queue_length",
